@@ -1,5 +1,6 @@
 # urbandictmcp
-
+**this is not an official mcp for https://www.urbandictionary.com
+** urbandictmcp is property of ZMachinery LLC by way of SHIPMB
 A dependency-free MCP server that lets an MCP client look up Urban Dictionary definitions.
 
 Urban Dictionary content is crowdsourced, so results may be explicit, offensive, wrong, or just extremely internet-shaped.
