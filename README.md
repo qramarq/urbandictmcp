@@ -55,7 +55,7 @@ Create `.vscode/mcp.json` in your project or add the same server entry to your V
       "type": "stdio",
       "command": "node",
       "args": [
-        "C:\\Users\\admin\\Documents\\urbandictmcp\\server.js"
+        "C:\\your\\user\\file\\path\\locally"
       ]
     }
   },
@@ -100,7 +100,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 
-SERVER_PATH = r"C:\Users\admin\Documents\urbandictmcp\server.js"
+SERVER_PATH = r"C:\\your\\user\\file\\path\\locally"
 
 
 async def main():
@@ -142,7 +142,7 @@ Use the absolute path to `server.js` from this checkout:
     "urban-dictionary": {
       "command": "node",
       "args": [
-        "C:\\Users\\admin\\Documents\\urbandictmcp\\server.js"
+        "C:\\your\\user\\file\\path\\locally"
       ]
     }
   }
