@@ -1,0 +1,23 @@
+{
+  "name": "urbandictmcp",
+  "version": "0.1.0",
+  "description": "A dependency-free MCP server for Urban Dictionary lookups.",
+  "main": "server.js",
+  "bin": {
+    "urbandictmcp": "./server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "smoke": "node scripts/smoke-test.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "urban-dictionary"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,4 +1,4 @@
-urbandictmcp
+# urbandictmcp
 
 A dependency-free MCP server that lets an MCP client look up Urban Dictionary definitions.
 
