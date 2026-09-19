@@ -7,7 +7,7 @@ const MAX_LIMIT = 10;
 const DEFAULT_PROTOCOL_VERSION = "2025-06-18";
 const SERVER_INFO = {
   name: "urbandictionary-mcp",
-  version: "0.1.0",
+  version: "0.2.0",
 };
 
 const TOOLS = [
@@ -77,8 +77,12 @@ const TOOLS = [
   },
 ];
 
+const { slangTools, interpretText, rewriteText } = require("./slang");
+TOOLS.push(...slangTools);
+
 let inputBuffer = "";
 
+if (require.main === module) {
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", (chunk) => {
   inputBuffer += chunk;
@@ -100,6 +104,7 @@ process.on("uncaughtException", (error) => {
 process.on("unhandledRejection", (error) => {
   logError("unhandled rejection", error);
 });
+}
 
 function processInputBuffer(flush = false) {
   let newlineIndex;
@@ -199,6 +204,10 @@ async function callTool(params) {
         return await randomDefinitions(args);
       case "urban_dictionary_defid":
         return await definitionById(args);
+      case "urban_dictionary_interpret":
+        return jsonResult(await interpretText(args, lookup));
+      case "urban_dictionary_rewrite":
+        return jsonResult(rewriteText(args));
       default:
         throw rpcError(-32602, `Unknown tool: ${params.name}`);
     }
@@ -332,7 +341,7 @@ function normalizeDefinitions(rawDefinitions) {
     return [];
   }
 
-  return rawDefinitions.map((item, index) => {
+  return rawDefinitions.filter((item) => item && typeof item === "object").map((item, index) => {
     const thumbsUp = toInteger(item.thumbs_up);
     const thumbsDown = toInteger(item.thumbs_down);
     return {
@@ -461,3 +470,17 @@ function logError(label, error) {
   const detail = error && error.stack ? error.stack : String(error);
   process.stderr.write(`[${SERVER_INFO.name}] ${label}: ${detail}\n`);
 }
+
+function jsonResult(structuredContent) {
+  return { content: [{ type: "text", text: JSON.stringify(structuredContent) }], structuredContent };
+}
+
+async function lookup(term, options = {}) {
+  return (await defineTerm({ ...options, term })).structuredContent;
+}
+
+module.exports = {
+  lookup,
+  interpret: (args) => interpretText(args, lookup),
+  rewrite: rewriteText,
+};

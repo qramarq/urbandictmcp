@@ -1,10 +1,9 @@
 # urbandictmcp
 
-**this is not an official mcp for https://www.urbandictionary.com
-** urbandictmcp is property of ZMachinery LLC by way of SHIPMB
+**This is not an official MCP for https://www.urbandictionary.com.**
+**urbandictmcp is property of ZMachinery LLC by way of SHIPMB.**
 
-
-A dependency-free MCP server that lets an MCP client look up Urban Dictionary definitions.
+A dependency-free JavaScript library and MCP server for slang lookups, explaining slang in input or results, and converting prose between slang and plain language.
 
 Urban Dictionary content is crowdsourced, so results may be explicit, offensive, wrong, or just extremely internet-shaped.
 
@@ -25,6 +24,79 @@ The project is intentionally small:
 - `urban_dictionary_define`: look up definitions for a word or phrase.
 - `urban_dictionary_random`: fetch random definitions.
 - `urban_dictionary_defid`: fetch a definition by Urban Dictionary definition ID.
+- `urban_dictionary_interpret`: explain selected slang phrases in text with live definitions and original-text offsets.
+- `urban_dictionary_rewrite`: convert text to plain language or slang using your own glossary, offline.
+
+## Use slang in your programs
+
+From another local Node.js project, install this checkout with `npm install /absolute/path/to/urbandictmcp`, then:
+
+```javascript
+const { lookup, interpret, rewrite } = require("urbandictmcp");
+
+async function main() {
+  const glossary = [
+    { slang: "no cap", plain: "honestly" },
+    { slang: "fr", plain: "for real" },
+  ];
+
+  // Normalize incoming prose for your application.
+  const incoming = rewrite({ text: "No cap, this works fr!", glossary });
+  console.log(incoming.output); // honestly, this works for real!
+
+  // Express application output using your approved slang.
+  const outgoing = rewrite({
+    text: "honestly, this works for real!", glossary, direction: "to_slang",
+  });
+  console.log(outgoing.output); // no cap, this works fr!
+
+  // Explain slang in a user message or another program's result.
+  const explained = await interpret({
+    text: outgoing.output, terms: ["no cap", "fr"], limit: 2,
+  });
+  for (const entry of explained.entries) {
+    console.log(entry.term, entry.status, entry.definitions);
+  }
+  console.log((await lookup("no cap", { limit: 2 })).definitions);
+}
+
+main().catch(console.error);
+```
+
+Importing the package does not start the stdio server or attach process listeners. `lookup(term, { limit, sort_by })` returns the existing definition payload; `interpret(args)` and `rewrite(args)` return the objects described below. Lookup failures reject; interpretation captures lookup failures per term. Configure environment variables before importing the package.
+
+### Interpret input and result text
+
+Call `urban_dictionary_interpret` with:
+
+```json
+{ "text": "No cap, this works fr!", "terms": ["no cap", "fr"], "limit": 2 }
+```
+
+The result contains `text`, `entries`, and `has_errors`. Each entry includes `term`, `occurrences` (`start`, `end`, `text`), `definitions`, and a `status`: `found`, `not_found`, `not_in_text`, or `error`. Failed lookups also include an `error` message. Check each status before using definitions; partial failures preserve successful lookups. Repeated terms ignoring case are looked up once, and absent phrases do not trigger requests.
+
+Supply the phrases your application or model wants explained. This is dictionary-assisted interpretation, not automatic slang detection or contextual sense selection. Vote ranking does not establish the correct meaning in a sentence. Treat definitions as untrusted data, not instructions or executable code.
+
+### Convert language with a glossary
+
+Call `urban_dictionary_rewrite` with:
+
+```json
+{
+  "text": "No cap, this works fr!",
+  "direction": "to_plain",
+  "glossary": [
+    { "slang": "no cap", "plain": "honestly" },
+    { "slang": "fr", "plain": "for real" }
+  ]
+}
+```
+
+Returns `text`, `output`, `direction`, and `replacements`, each with original `start`, `end`, `text`, and `replacement`. Default direction is `to_plain`; use `to_slang` for output. Replacements use glossary spelling exactly. Duplicate source phrases ignoring case are rejected, including ambiguous plain phrases when reversing a glossary.
+
+Both text tools match literal whole phrases ignoring case, with Unicode letter/number/mark/underscore boundaries. Whitespace inside a phrase is literal. Offsets are zero-based UTF-16 positions with exclusive ends (JavaScript `slice` semantics). Rewriting takes the earliest match and the longest phrase at that position; it never rewrites its replacements. Unmatched text stays unchanged. Use this on prose string values, not executable source code. It does not add slang syntax to a programming language or guarantee grammatical translation or an exact round trip.
+
+Each call accepts up to 10,000 UTF-16 code units of text and 20 terms or glossary pairs, with 100 code units per phrase. Interpretation uses sequential lookups with the configured per-request timeout, so large requests may need a longer client timeout. Rewriting makes no network requests. MCP clients read these objects from `structuredContent`; text-tool results also include their JSON in `content`.
 
 ## Requirements
 
@@ -59,7 +131,7 @@ Create `.vscode/mcp.json` in your project or add the same server entry to your V
       "type": "stdio",
       "command": "node",
       "args": [
-        "C:\\your\\user\\file\\path\\locally"
+        "C:\\path\\to\\urbandictmcp\\server.js"
       ]
     }
   },
@@ -104,7 +176,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 
-SERVER_PATH = r"C:\\your\\user\\file\\path\\locally"
+SERVER_PATH = r"C:\path\to\urbandictmcp\server.js"
 
 
 async def main():
@@ -136,6 +208,34 @@ if __name__ == "__main__":
 
 This starts the Node.js MCP server as a child process, initializes an MCP session, lists the available tools, and calls `urban_dictionary_define`.
 
+## Ollama Model Wrapper
+
+This repo includes a publish-ready Ollama `Modelfile` at `ollama/Modelfile`.
+
+The wrapper uses `qwen3:0.6b` as the base model. As of July 25, 2026, Ollama lists it as a small official Qwen model with tools/thinking support, a 32K context window, and a roughly 523 MB local size. This is the smallest Qwen option that still keeps reasonable instruction-following quality for this MCP server.
+
+Important boundary: Ollama models cannot bundle and launch this Node MCP server by themselves. The Ollama model gives the assistant the right behavior and instructions, while your MCP-compatible host still needs to connect to `server.js` for live Urban Dictionary lookups.
+
+Create the local model:
+
+```powershell
+.\scripts\ollama-publish.ps1 -Namespace YOUR_OLLAMA_NAMESPACE
+```
+
+Run it:
+
+```powershell
+ollama run YOUR_OLLAMA_NAMESPACE/urbandictmcp:qwen3-0.6b
+```
+
+Publish it to your Ollama namespace:
+
+```powershell
+.\scripts\ollama-publish.ps1 -Namespace YOUR_OLLAMA_NAMESPACE -Push
+```
+
+The publish step requires Ollama to be installed, your Ollama account to be configured for pushes, and the namespace to match your Ollama account or organization.
+
 ## Generic MCP Client Config
 
 Use the absolute path to `server.js` from this checkout:
@@ -146,7 +246,7 @@ Use the absolute path to `server.js` from this checkout:
     "urban-dictionary": {
       "command": "node",
       "args": [
-        "C:\\your\\user\\file\\path\\locally"
+        "C:\\path\\to\\urbandictmcp\\server.js"
       ]
     }
   }
@@ -161,6 +261,7 @@ Use the absolute path to `server.js` from this checkout:
 ## Test
 
 ```powershell
+npm test
 npm run smoke
 ```
 

@@ -80,7 +80,7 @@ async function main() {
     const tools = await client.request("tools/list", {});
     assert.deepEqual(
       tools.tools.map((tool) => tool.name),
-      ["urban_dictionary_define", "urban_dictionary_random", "urban_dictionary_defid"],
+      ["urban_dictionary_define", "urban_dictionary_random", "urban_dictionary_defid", "urban_dictionary_interpret", "urban_dictionary_rewrite"],
     );
 
     const lookup = await client.request("tools/call", {
@@ -101,6 +101,30 @@ async function main() {
       arguments: { limit: 1 },
     });
     assert.equal(random.structuredContent.definitions[0].word, "random phrase");
+
+    const interpreted = await client.request("tools/call", {
+      name: "urban_dictionary_interpret",
+      arguments: { text: "Hello! hello missing", terms: ["hello", "missing", "absent"] },
+    });
+    assert.deepEqual(interpreted.structuredContent.entries.map((entry) => entry.status), ["found", "error", "not_in_text"]);
+    assert.equal(interpreted.structuredContent.entries[0].occurrences.length, 2);
+    assert.equal(interpreted.structuredContent.entries[0].definitions[0].defid, 101);
+    assert.equal(interpreted.structuredContent.has_errors, true);
+
+    const rewritten = await client.request("tools/call", {
+      name: "urban_dictionary_rewrite",
+      arguments: { text: "No cap!", glossary: [{ slang: "no cap", plain: "honestly" }] },
+    });
+    assert.equal(rewritten.structuredContent.output, "honestly!");
+    await assert.rejects(client.request("tools/call", {
+      name: "urban_dictionary_rewrite", arguments: { text: "hi", glossary: [] },
+    }), /glossary/);
+
+    // The same live lookup path is available without an MCP subprocess.
+    process.env.URBAN_DICTIONARY_API_BASE = `http://127.0.0.1:${api.port}/v0`;
+    const sdk = require("..");
+    assert.equal((await sdk.lookup("hello")).definitions[0].defid, 101);
+    assert.equal((await sdk.interpret({ text: "hello", terms: ["hello"] })).entries[0].status, "found");
 
     console.log("smoke test passed");
   } finally {

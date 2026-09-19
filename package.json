@@ -1,14 +1,17 @@
 {
   "name": "urbandictmcp",
-  "version": "0.1.0",
-  "description": "A dependency-free MCP server for Urban Dictionary lookups.",
+  "version": "0.2.0",
+  "description": "Dependency-free slang lookup, interpretation, and glossary rewriting for JavaScript and MCP.",
   "main": "server.js",
   "bin": {
     "urbandictmcp": "./server.js"
   },
   "scripts": {
+    "test": "node --test test/*.test.js && node scripts/smoke-test.js",
     "start": "node server.js",
-    "smoke": "node scripts/smoke-test.js"
+    "smoke": "node scripts/smoke-test.js",
+    "ollama:create": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ollama-publish.ps1",
+    "ollama:publish": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ollama-publish.ps1 -Push"
   },
   "keywords": [
     "mcp",
