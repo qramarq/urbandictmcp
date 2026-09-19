@@ -79,6 +79,8 @@ const TOOLS = [
 
 const { slangTools, interpretText, rewriteText } = require("./slang");
 TOOLS.push(...slangTools);
+const shipmb = require("./shipmb");
+TOOLS.push(...shipmb.shipmbTools);
 
 let inputBuffer = "";
 
@@ -208,6 +210,11 @@ async function callTool(params) {
         return jsonResult(await interpretText(args, lookup));
       case "urban_dictionary_rewrite":
         return jsonResult(rewriteText(args));
+      case "shipmb_compile":
+      case "shipmb_run": {
+        const result = await shipmb[params.name === "shipmb_run" ? "run" : "compile"](args);
+        return { ...jsonResult(result), isError: !result.ok };
+      }
       default:
         throw rpcError(-32602, `Unknown tool: ${params.name}`);
     }
@@ -480,6 +487,7 @@ async function lookup(term, options = {}) {
 }
 
 module.exports = {
+  shipmb,
   lookup,
   interpret: (args) => interpretText(args, lookup),
   rewrite: rewriteText,

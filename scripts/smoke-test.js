@@ -80,7 +80,7 @@ async function main() {
     const tools = await client.request("tools/list", {});
     assert.deepEqual(
       tools.tools.map((tool) => tool.name),
-      ["urban_dictionary_define", "urban_dictionary_random", "urban_dictionary_defid", "urban_dictionary_interpret", "urban_dictionary_rewrite"],
+      ["urban_dictionary_define", "urban_dictionary_random", "urban_dictionary_defid", "urban_dictionary_interpret", "urban_dictionary_rewrite", "shipmb_compile", "shipmb_run"],
     );
 
     const lookup = await client.request("tools/call", {

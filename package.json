@@ -7,6 +7,7 @@
     "urbandictmcp": "./server.js"
   },
   "scripts": {
+    "test:shipmb": "node scripts/test-shipmb-integration.js",
     "test": "node --test test/*.test.js && node scripts/smoke-test.js",
     "start": "node server.js",
     "smoke": "node scripts/smoke-test.js",

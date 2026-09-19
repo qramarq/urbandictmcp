@@ -98,6 +98,15 @@ Both text tools match literal whole phrases ignoring case, with Unicode letter/n
 
 Each call accepts up to 10,000 UTF-16 code units of text and 20 terms or glossary pairs, with 100 code units per phrase. Interpretation uses sequential lookups with the configured per-request timeout, so large requests may need a longer client timeout. Rewriting makes no network requests. MCP clients read these objects from `structuredContent`; text-tool results also include their JSON in `content`.
 
+## ShipMB compiler and language bridge
+
+Use `shipmb_compile` and `shipmb_run` to compile or run supported English through
+ShipMBCompiler or ShipMBLang. The JavaScript API exposes `shipmb.compile` and
+`shipmb.run`. These optional tools require a configured Python installation;
+the five dictionary tools still work without Python.
+
+See [installation, examples, and bidirectional integration tests](SHIPMB_INTEGRATION.md).
+
 ## Requirements
 
 - Node.js 18 or newer.

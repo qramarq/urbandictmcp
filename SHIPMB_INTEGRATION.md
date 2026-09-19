@@ -27,10 +27,90 @@ the implemented computation subset, including typed functions and recursion;
 this is not a claim that arbitrary English or every application domain compiles.
 Weather/permission handling was a build example, not a feature to add here.
 
-Urbandictmcp remains an optional dictionary and prose-glossary service. Its five
-MCP tools and JavaScript API neither compile nor execute ShipMB programs. No
-compiler dependency, editor extension, shared-memory database, or automatic
-source-normalization hook is installed by this repository.
+Urbandictmcp now exposes `shipmb_compile` and `shipmb_run` alongside its five
+dictionary tools. Its JavaScript `shipmb.compile` and `shipmb.run` API uses the
+same bridge. This delegates to installed Python packages; it does not duplicate
+the compiler, change upstream defaults, or automatically normalize source.
+
+## Install and use the bridge
+
+Use Python 3.11 or newer with both packages installed. The compiler must include
+`--diagnostic-format json`; older wheels also labeled 0.2.1 can predate this flag.
+The pinned commits above were tested. With access to the private repositories:
+
+```powershell
+python -m venv .venv-shipmb
+.\.venv-shipmb\Scripts\python.exe -m pip install "shipmbcompiler @ git+https://github.com/qramarq/shipmblang-compiler.git@936c90dff6708c93db43e162c0107ccd69cdb887#subdirectory=shipmbcompiler" "shipmblang @ git+https://github.com/qramarq/shipmblang.git@2062f44da83592981b56634f92d1fabe5ea1f601"
+$env:SHIPMB_PYTHON = (Resolve-Path .\.venv-shipmb\Scripts\python.exe).Path
+node server.js
+```
+
+Alternatively install locally built wheels from these revisions. On Unix use
+the environment's `bin/python`. `SHIPMB_PYTHON` is a single executable path,
+configured by the host, never a tool argument or shell command. It defaults to
+`python`. Include it in your MCP server configuration's `env` to persist the
+choice. Missing packages produce a tool error; dictionary tools still work.
+
+Example MCP arguments to either new tool:
+
+```json
+{"source":"Let total be an integer with value 27. Show total.","backend":"language"}
+```
+
+`backend` selects `compiler` (default, `python -m shipmbc`) or `language`
+(`python -m shipmblang`). Compilation also accepts `profile: "general"` (default)
+or `"roku"`. Running is restricted to the general profile without host adapters.
+Both use the direct pipeline explicitly and disable persistent memory. No
+legacy/IR fallback, model provider, host permissions, or dictionary rewrite is
+inferred from tool input.
+
+```javascript
+const { shipmb, rewrite } = require("urbandictmcp");
+async function main() {
+  const response = await shipmb.run({
+    source: "Let total be an integer with value 27. Show total.",
+    backend: "compiler",
+  });
+  if (!response.ok) {
+    console.error(response.result.diagnostics, response.result.clarifications);
+    return;
+  }
+  console.log(response.result.runtime.stdout); // 27
+  console.log(rewrite({
+    text: response.result.runtime.stdout,
+    direction: "to_slang",
+    glossary: [{ slang: "twenty-seven", plain: "27" }],
+  }).output);
+}
+main().catch(console.error);
+```
+
+Results contain `ok`, `backend`, `profile`, unchanged `source`, `exit_code`,
+`stderr`, and the upstream `result`, including diagnostics, clarification,
+bytecode, source revision, and runtime output when requested. Failed compilation
+is an MCP `isError` result with structured diagnostics, not a runnable artifact.
+Transport/installation failures throw in JavaScript and return MCP tool errors.
+Compiler diagnostic spans retain code-point units; dictionary offsets remain
+UTF-16. No span conversion is silently applied by the bridge.
+
+Each call uses a temporary UTF-8 file, removed afterward, and a shell-free child
+process with a 30-second timeout and 4 MiB output limit per stream. Source is
+limited to 10,000 UTF-16 units. The JavaScript API accepts an optional second
+argument `{ signal }` for AbortSignal cancellation. MCP request-cancellation
+notifications are not currently wired to the bridge. The runtime is not a
+security sandbox for untrusted Python installations; choose a trusted executable
+and packages. The native offshoot retains its existing dictionary tool surface.
+
+## Reverse integration
+
+The upstream compiler's `UrbanDictionaryMCPClient` already connects to this
+server over stdio. Its `shipmbc slang sync` command collects dictionary candidates
+with an explicit trusted `--urban-mcp-server` path. Only explicit reviewed
+`--map` entries activate compatibility thesaurus synonyms; the direct grammar
+does not apply context-free thesaurus rewriting. No upstream code change is
+needed for the new tools to coexist with that client. Language/compiler runtime
+output can also be passed to this package's `interpret` or `rewrite` as a string
+value, as shown above.
 
 ## Dictionary suggestions and compiler source
 
@@ -85,8 +165,17 @@ Run `npm test` from this repository. The existing tests cover silent API imports
 UTF-16 matching with non-BMP text, literal/non-cascading glossary replacements,
 ambiguous reverse mappings, per-term lookup errors, and MCP behavior against a
 local fake API. No public dictionary service or installed ShipMB package is
-required. These checks validate the dictionary boundary, not end-to-end ShipMB
-compilation or VS Code execution.
+required. Run `npm run test:shipmb` (or `node scripts/test-shipmb-integration.js`)
+with `SHIPMB_PYTHON` configured for real integration checks. It exercises both
+backends through the JavaScript and MCP APIs, compile-only and run behavior,
+sum-to-27 execution, unsupported-source rejection, literal Unicode/shell-like
+text, cancellation, runtime-output glossary rewriting, and the actual Python
+compiler MCP client calling this server in reverse. No network lookup is needed.
+
+These tests passed on Python 3.14 using both source checkouts and freshly built,
+installed packages from the pinned revisions, without PYTHONPATH for the latter.
+The eight dependency-free unit tests and dictionary MCP smoke test also passed.
+This repository does not rerun the upstream VS Code extension-host suite.
 
 Broader language features and rollout gates remain upstream work. Updating this
 context does not change pipeline defaults, remove Core, or publish a new package.
