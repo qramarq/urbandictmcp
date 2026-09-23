@@ -16,6 +16,12 @@ End the loop.
 Show total.`;
 
 async function main() {
+  // Ambient model configuration must not silently change the bridge contract.
+  process.env.SHIPMB_MODEL_PROVIDER = "invalid-provider-for-regression-test";
+  const defaultRun = await shipmb.run({ source: 'Show "default language backend".' });
+  assert.equal(defaultRun.backend, "language");
+  assert.equal(defaultRun.ok, true, JSON.stringify(defaultRun));
+  assert.equal(defaultRun.result.runtime.stdout, "default language backend\n");
   for (const backend of ["compiler", "language"]) {
     const compiled = await shipmb.compile({ source, backend });
     assert.equal(compiled.ok, true, JSON.stringify(compiled));

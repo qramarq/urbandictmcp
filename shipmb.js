@@ -5,9 +5,27 @@ const { mkdtemp, writeFile, rm } = require("node:fs/promises");
 const { tmpdir } = require("node:os");
 const path = require("node:path");
 
+// The compiler wheel is a library; only ShipMBLang owns an installed CLI.
+const compilerScript = `import json, sys
+from pathlib import Path
+from shipmbcompiler import compile_direct_program
+from shipmbcompiler.limits import MAX_SOURCE_CHARS, read_text_limited
+from shipmbcompiler.runtime import run_artifact
+try:
+    source = read_text_limited(Path(sys.argv[1]), MAX_SOURCE_CHARS, newline="")
+    result = compile_direct_program(source, profile=sys.argv[2], memory=False, model_provider=None)
+    if sys.argv[3] == "run" and result["status"] == "compiled":
+        result["runtime"], errors = run_artifact(result["target_code"])
+        result["diagnostics"].extend(error.to_dict() for error in errors)
+except (OSError, UnicodeError, ValueError) as error:
+    result = {"status": "error", "target_code": None, "diagnostics": [{"level": "error", "message": str(error)}]}
+print(json.dumps(result))
+sys.exit(0 if result["status"] == "compiled" and not any(d["level"] == "error" for d in result["diagnostics"]) else 1)
+`;
+
 const properties = {
   source: { type: "string", minLength: 1, maxLength: 10000 },
-  backend: { type: "string", enum: ["compiler", "language"], default: "compiler" },
+  backend: { type: "string", enum: ["compiler", "language"], default: "language" },
   profile: { type: "string", enum: ["general", "roku"], default: "general" },
 };
 const shipmbTools = [
@@ -26,7 +44,7 @@ async function invoke(args, run, options = {}) {
   const allowed = run ? ["source", "backend"] : ["source", "backend", "profile"];
   for (const key of Object.keys(args)) if (!allowed.includes(key)) invalid(`Unknown argument: ${key}`);
   if (typeof args.source !== "string" || !args.source.trim() || args.source.length > 10000) invalid("source must contain 1–10000 UTF-16 code units");
-  const backend = args.backend === undefined ? "compiler" : args.backend;
+  const backend = args.backend === undefined ? "language" : args.backend;
   const profile = args.profile === undefined ? "general" : args.profile;
   if (!["compiler", "language"].includes(backend)) invalid("backend must be compiler or language");
   if (!["general", "roku"].includes(profile)) invalid("profile must be general or roku");
@@ -36,9 +54,9 @@ async function invoke(args, run, options = {}) {
     await writeFile(file, args.source, "utf8");
     const command = process.env.SHIPMB_PYTHON || "python";
     const argv = backend === "compiler"
-      ? ["-X", "utf8", "-m", "shipmbc", file, "--diagnostic-format", "json", ...(run ? ["--run"] : [])]
+      ? ["-X", "utf8", "-c", compilerScript, file, profile, run ? "run" : "compile"]
       : ["-X", "utf8", "-m", "shipmblang", run ? "run" : "compile", "--file", file, "--format", "json"];
-    argv.push("--pipeline", "direct", "--profile", profile, "--memory", "off");
+    if (backend === "language") argv.push("--pipeline", "direct", "--profile", profile, "--memory", "off", "--no-english-model");
     const response = await new Promise((resolve, reject) => {
       execFile(command, argv, {
         cwd: directory, windowsHide: true, shell: false, encoding: "utf8",
