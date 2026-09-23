@@ -103,7 +103,11 @@ Each call accepts up to 10,000 UTF-16 code units of text and 20 terms or glossar
 Use `shipmb_compile` and `shipmb_run` to compile or run supported English through
 ShipMBCompiler or ShipMBLang. The JavaScript API exposes `shipmb.compile` and
 `shipmb.run`. These optional tools require a configured Python installation;
-the five dictionary tools still work without Python.
+the five dictionary tools still work without Python. The default `language`
+backend uses ShipMBLang's bundled compiler. The optional `compiler` backend
+uses the private development library API. Both disable model translation and
+persistent memory. ShipMBLang can also call the dictionary through its public
+`shipmblang.slang.UrbanDictionaryMCPClient` and `python -m shipmblang slang` CLI.
 
 See [installation, examples, and bidirectional integration tests](SHIPMB_INTEGRATION.md).
 
